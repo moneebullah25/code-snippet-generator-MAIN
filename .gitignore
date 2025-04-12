@@ -1,0 +1,3 @@
+.vscode
+backend/app/api/fine_tuned_code_completion_model/
+.env
