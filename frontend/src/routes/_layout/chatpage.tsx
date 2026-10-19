@@ -33,7 +33,7 @@ function ChatPage() {
     };
 
     try {
-      const response = await fetch('http://localhost/api/v1/c_gnr', requestOptions);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost'}/api/v1/c_gnr`, requestOptions);
       const data = await response.json();
       setHistory([...history, { input, response: data }]);
       setInput(''); // Clear the input field after submission
