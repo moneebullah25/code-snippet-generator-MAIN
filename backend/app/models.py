@@ -67,8 +67,10 @@ class ItemBase(SQLModel):
 class ItemCreate(ItemBase):
     title: str
 
+
 class CodeGeneratorInput(SQLModel):
     input: str
+
 
 # Properties to receive on item update
 class ItemUpdate(ItemBase):
@@ -93,8 +95,10 @@ class ItemsPublic(SQLModel):
     data: list[ItemPublic]
     count: int
 
+
 class CodeGeneratorOutput(SQLModel):
     message: str
+
 
 # Generic message
 class Message(SQLModel):

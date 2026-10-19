@@ -1,41 +1,41 @@
+import os
+from functools import lru_cache
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
-from sqlmodel import func, select
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import CurrentUser, SessionDep
-from app.models import CodeGeneratorOutput, CodeGeneratorInput
-
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from app.api.deps import get_current_user
+from app.models import CodeGeneratorInput
 
 router = APIRouter()
 
-# Load the fine-tuned model and tokenizer
-model_name = "app/api/fine_tuned_code_completion_model"  # Replace with the path to your fine-tuned model
-tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-model = GPT2LMHeadModel.from_pretrained(model_name)
+# Path to the fine-tuned GPT-2 checkpoint (not shipped in this repo).
+MODEL_PATH = os.getenv("CODE_MODEL_PATH", "app/api/fine_tuned_code_completion_model")
 
-@router.post("/")
-def get_response(
-    *, session: SessionDep, current_user: CurrentUser, item_in: CodeGeneratorInput
-) -> Any:
-    # Set the model to evaluation mode
+
+@lru_cache(maxsize=1)
+def _load_model() -> tuple[Any, Any]:
+    # Lazy import/load so the API starts even when the checkpoint is absent.
+    from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
+    tokenizer = GPT2Tokenizer.from_pretrained(MODEL_PATH, local_files_only=True)
+    model = GPT2LMHeadModel.from_pretrained(MODEL_PATH, local_files_only=True)
     model.eval()
+    return tokenizer, model
 
-    # Generate sample text
-    prompt = item_in.input
-    input_ids = tokenizer.encode(prompt, return_tensors="pt")
 
-    # Adjust the max length of the generated sequence as needed
-    max_length = 100
+@router.post("/", dependencies=[Depends(get_current_user)])
+def get_response(*, item_in: CodeGeneratorInput) -> Any:
+    try:
+        tokenizer, model = _load_model()
+    except (OSError, ImportError) as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Code generation model unavailable (CODE_MODEL_PATH={MODEL_PATH})",
+        ) from e
 
-    # Generate the sample
-    output = model.generate(input_ids, max_length=max_length, num_return_sequences=1, no_repeat_ngram_size=2)
-
-    # Decode the generated output
-    generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
-
-    print("Generated Code:")
-    print(generated_text)
-
-    return generated_text
+    input_ids = tokenizer.encode(item_in.input, return_tensors="pt")
+    output = model.generate(
+        input_ids, max_length=100, num_return_sequences=1, no_repeat_ngram_size=2
+    )
+    return tokenizer.decode(output[0], skip_special_tokens=True)

@@ -45,16 +45,14 @@ def test_use_access_token(
 def test_recovery_password(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
-    with (
-        patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
-        patch("app.core.config.settings.SMTP_USER", "admin@example.com"),
-    ):
+    with patch("app.api.routes.login.send_email") as send:
         email = "test@example.com"
         r = client.post(
             f"{settings.API_V1_STR}/password-recovery/{email}",
             headers=normal_user_token_headers,
         )
         assert r.status_code == 200
+        send.assert_called_once()
         assert r.json() == {"message": "Password recovery email sent"}
 
 
@@ -73,7 +71,7 @@ def test_reset_password(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
     token = generate_password_reset_token(email=settings.FIRST_SUPERUSER)
-    data = {"new_password": "changethis", "token": token}
+    data = {"new_password": settings.FIRST_SUPERUSER_PASSWORD, "token": token}
     r = client.post(
         f"{settings.API_V1_STR}/reset-password/",
         headers=superuser_token_headers,
