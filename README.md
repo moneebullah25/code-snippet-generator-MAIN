@@ -50,4 +50,4 @@ CI (`.github/workflows/test.yml`) runs the same suite via Docker Compose on push
 
 ## License
 
-See [LICENSE](LICENSE).
+Released under the MIT License. See [LICENSE](LICENSE).
